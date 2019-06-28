@@ -50,16 +50,18 @@
  */
 exports.ConfirmationOptions = {
     "time": 60000,
-    /**
-     * @typedef {ConfirmationReactionOptions}
-     * @property {string} accept The emoji id or unicode that represents the accept reactions
-     * @property {string} decline The emoji id or unicode that represents the decline reactions
-     */
     "reactions": {
         "accept": "✅",
         "decline": "❎"
     }
 }
+
+/**
+ * @typedef {ConfirmationReactionOptions}
+ * @property {string} accept The emoji id or unicode that represents the accept reactions
+ * @property {string} decline The emoji id or unicode that represents the decline reactions
+ */
+exports.ConfirmationReactionOptions = {}
 
 /**
  * Options for the Pagination Interface
@@ -93,6 +95,16 @@ exports.PaginationOptions = {
 }
 
 /**
+ * @typedef {PaginationReactionOptions}
+ * @property {string} nextPage The emoji id or unicode that represents the next page control
+ * @property {string} previousPage The emoji id or unicode that represents the previous page control
+ * @property {string} skipToFinal The emoji id or unicode that represents the skip to the final control
+ * @property {string} backToStart The emoji id or unicode that represents the back to start control
+ * @property {string} cancel The emoji id or unicode that represents the cancel control
+ */
+exports.PaginationReactionOptions = {}
+
+/**
  * @typedef {MenuOptions}
  * @property {number} time The amount of time in milliseconds until the collectors stops
  * @property {MenuReactionOptions} reactions The menu reactions for the menu controllers
@@ -111,15 +123,24 @@ exports.MenuOptions = {
         "goBack": "🗃",
         "cancel": "🚫"
     },
-    /**
-     * @typedef {MenuCategoryOptions}
-     * @property {string} name The category name
-     * @property {?boolean} isMain Whether is a main category
-     * @property {Object} emoji The category emoji, should have a property called id which could be an emoji id or unicode and emoji which should be the emoji identifier (Example: :white_check_mark:)
-     * @property {?array} subCategories The category subcategories. The subcategories should follow the MenuCategoryOptions
-     */
     "categories": []
-}</code></pre>
+}
+
+/**
+ * @typedef {MenuReactionOptions}
+ * @property {string} goBack The emoji id or unicode that represents the go back controller
+ * @property {string} cancel The emoji id or unicode that represents the cancel controller
+ */
+exports.MenuReactionOptions = {}
+
+/**
+ * @typedef {MenuCategoryOptions}
+ * @property {string} name The category name
+ * @property {?boolean} isMain Whether is a main category
+ * @property {Object} emoji The category emoji, should have a property called id which could be an emoji id or unicode and emoji which should be the emoji identifier (Example: :white_check_mark:)
+ * @property {?array} subCategories The category subcategories. The subcategories should follow the MenuCategoryOptions
+ */
+exports.MenuCategoryOptions = {}</code></pre>
         </article>
     </section>
 
