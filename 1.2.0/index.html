@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Home - Documentation</title>
+
+    <script src="scripts/prettify/prettify.js"></script>
+    <script src="scripts/prettify/lang-css.js"></script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="https://code.ionicframework.com/ionicons/2.0.1/css/ionicons.min.css">
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+<body>
+
+<input type="checkbox" id="nav-trigger" class="nav-trigger" />
+<label for="nav-trigger" class="navicon-button x">
+  <div class="navicon"></div>
+</label>
+
+<label for="nav-trigger" class="overlay"></label>
+
+<nav>
+    <li class="nav-link nav-home-link"><a href="index.html">Home</a></li><li class="nav-heading">Classes</li><li class="nav-heading"><span class="nav-item-type type-class">C</span><span class="nav-item-name"><a href="Confirmation.html">Confirmation</a></span></li><li class="nav-item"><span class="nav-item-type type-function">F</span><span class="nav-item-name"><a href="Confirmation.html#.create">create</a></span></li><li class="nav-heading"><span class="nav-item-type type-class">C</span><span class="nav-item-name"><a href="Menu.html">Menu</a></span></li><li class="nav-item"><span class="nav-item-type type-function">F</span><span class="nav-item-name"><a href="Menu.html#.create">create</a></span></li><li class="nav-heading"><span class="nav-item-type type-class">C</span><span class="nav-item-name"><a href="Pagination.html">Pagination</a></span></li><li class="nav-item"><span class="nav-item-type type-function">F</span><span class="nav-item-name"><a href="Pagination.html#.create">create</a></span></li><li class="nav-heading">Events</li><li class="nav-heading"><span class="nav-item-type type-event">E</span><span class="nav-item-name"><a href="Confirmation.html#event:confirmation">confirmation</a></span></li><li class="nav-heading"><span class="nav-item-type type-event">E</span><span class="nav-item-name"><a href="Confirmation.html#event:over">over</a></span></li><li class="nav-heading"><span class="nav-item-type type-event">E</span><span class="nav-item-name"><a href="Menu.html#event:categorySelected">categorySelected</a></span></li><li class="nav-heading"><span class="nav-item-type type-event">E</span><span class="nav-item-name"><a href="Menu.html#event:over">over</a></span></li><li class="nav-heading"><span class="nav-item-type type-event">E</span><span class="nav-item-name"><a href="Pagination.html#event:collect">collect</a></span></li><li class="nav-heading"><span class="nav-item-type type-event">E</span><span class="nav-item-name"><a href="Pagination.html#event:over">over</a></span></li><li class="nav-heading"><a href="global.html">Globals</a></li>
+</nav>
+
+<div id="main">
+    
+
+    
+
+
+
+    
+
+
+
+
+
+
+
+
+
+    
+
+
+    <section class="readme">
+        <article><h1>About</h1>
+<p>Discord Interface is a discord.js extension to easily create reactions menus such as <a href="#pagination">Pagination</a> and <a href="#confirmation">Confirmation</a>. Feel free to fork or pull a request. <strong>This project is made to use on</strong> <a href="https://npmjs.com/dolphin-discord">Dolphin</a> <strong>which is a project made to easily create Discord Bots, currently with no easy documentation.</strong></p>
+<h1>Get Started</h1>
+<pre class="prettyprint source"><code>npm install discord-interface
+</code></pre>
+<h1>Interfaces</h1>
+<h3>Pagination</h3>
+<pre class="prettyprint source lang-js"><code>const {Pagination} = require('discord-interface');
+
+let items = ['Banana', 'Apple'];
+
+function getPage(item, pageNumber) {
+    return new RichEmbed()
+        .setColor('RANDOM')
+        .setDescription(item)
+        .setFooter(`Page ${pageNumber}/${items.length}`)
+}
+
+let pagination = Pagination.create(message, {time: 60000, userID: message.author.id, items: items, getPage: getPage, removeReactions: true, extraReactions: ['✅']}});
+/* 
+If you want to customize the Paginations Reactions add the property &quot;reactions&quot; to the options
+Example:
+
+&quot;reactions&quot;: {
+    &quot;nextPage&quot;: &quot;▶&quot;,
+    &quot;previousPage&quot;: &quot;◀&quot;,
+    &quot;skipToFinal&quot;: &quot;⏩&quot;,
+    &quot;backToStart&quot;: &quot;⏪&quot;,
+    &quot;cancel&quot;: &quot;🚫&quot;
+}
+*/
+
+// # Pagination Events
+
+// Emitted when the collector of the pagination stops
+pagination.on('over', timeOver => {
+    if (timeOver) {
+        // The time is over
+    } else {
+        // User stopped the collector
+    }
+});
+
+// Emitted when collected an extra reaction
+pagination.on('collect', extraReaction => {
+    console.log(extraReaction.emoji.id); 
+});
+</code></pre>
+<h3>Confirmation</h3>
+<pre class="prettyprint source lang-js"><code>const {Confirmation} = require('discord-interface');
+
+let confirmation = Confirmation.create(message, {time: 60000, userID: message.author.id});
+/* 
+If you want to customize the Confirmation Reactions add the property &quot;reactions&quot; to the options
+Example:
+
+&quot;reactions&quot;: {
+    &quot;accept&quot;: &quot;✅&quot;,
+    &quot;decline&quot;: &quot;❎&quot;
+}
+*/
+
+// Confirmation Events
+// User confirmation
+confirmation.on('confirmation', confirmed => {
+    if (confirmed) {
+        // User confirmed
+    } else {
+        // User didn't confirm
+    }
+});
+
+// Collector ended
+confirmation.on('over', timeOver => {
+    if (timeOver) {
+        // The time is over
+    } else {
+        // User stopped the collector
+    }
+});
+</code></pre>
+<h3>Menu</h3>
+<pre class="prettyprint source lang-js"><code>const {Menu} = require('discord-interface');
+
+let CategoryMenuCategories = [
+    {name: 'Main', isMain: true, emoji: {id: '🐺', emoji: '🐺'}, subCategories: [
+        {name: 'Main Subcategory', emoji: {id: '🏆', emoji: '🏆'}}
+    ]}
+];
+
+let CategoryMenu = Menu.create(this.message, {time: 60000, userID: this.message.author.id, categories: CategoryMenuCategories, prefix: 'Prefix', suffix: 'Suffix', disableTitle: true});
+
+CategoryMenu.on('categorySelected', console.log);
+CategoryMenu.on('over', console.log);
+
+// Simple Menu
+let MenuCategories = [
+    {name: 'Create', emoji: {id: '📃', emoji: '📃'}},
+    {name: 'Delete', emoji: {id: '❎', emoji: '❎'}}
+];
+
+let MenuInterface = Menu.create(this.message, {time: 60000, userID: this.message.author.id, categories: MenuCategories, prefix: 'Prefix', suffix: 'Suffix', title: 'Random Title'});
+
+MenuInterface.on('categorySelected', console.log);
+MenuInterface.on('over', console.log);
+</code></pre></article>
+    </section>
+
+
+
+
+
+
+</div>
+
+<br class="clear">
+
+<footer>
+    Generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.6.2</a> using the Minami theme.
+</footer>
+
+<script>prettyPrint();</script>
+<script src="scripts/linenumber.js"></script>
+</body>
+</html>
