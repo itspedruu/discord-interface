@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>lib/Menu.js - Documentation</title>
+
+    <script src="scripts/prettify/prettify.js"></script>
+    <script src="scripts/prettify/lang-css.js"></script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="https://code.ionicframework.com/ionicons/2.0.1/css/ionicons.min.css">
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+<body>
+
+<input type="checkbox" id="nav-trigger" class="nav-trigger" />
+<label for="nav-trigger" class="navicon-button x">
+  <div class="navicon"></div>
+</label>
+
+<label for="nav-trigger" class="overlay"></label>
+
+<nav>
+    <li class="nav-link nav-home-link"><a href="index.html">Home</a></li><li class="nav-heading">Classes</li><li class="nav-heading"><span class="nav-item-type type-class">C</span><span class="nav-item-name"><a href="Confirmation.html">Confirmation</a></span></li><li class="nav-item"><span class="nav-item-type type-function">F</span><span class="nav-item-name"><a href="Confirmation.html#.create">create</a></span></li><li class="nav-heading"><span class="nav-item-type type-class">C</span><span class="nav-item-name"><a href="Menu.html">Menu</a></span></li><li class="nav-item"><span class="nav-item-type type-function">F</span><span class="nav-item-name"><a href="Menu.html#.create">create</a></span></li><li class="nav-heading"><span class="nav-item-type type-class">C</span><span class="nav-item-name"><a href="Pagination.html">Pagination</a></span></li><li class="nav-item"><span class="nav-item-type type-function">F</span><span class="nav-item-name"><a href="Pagination.html#.create">create</a></span></li><li class="nav-heading"><span class="nav-item-type type-class">C</span><span class="nav-item-name"><a href="Response.html">Response</a></span></li><li class="nav-item"><span class="nav-item-type type-function">F</span><span class="nav-item-name"><a href="Response.html#.create">create</a></span></li><li class="nav-heading">Events</li><li class="nav-heading"><span class="nav-item-type type-event">E</span><span class="nav-item-name"><a href="Confirmation.html#event:confirmation">confirmation</a></span></li><li class="nav-heading"><span class="nav-item-type type-event">E</span><span class="nav-item-name"><a href="Confirmation.html#event:over">over</a></span></li><li class="nav-heading"><span class="nav-item-type type-event">E</span><span class="nav-item-name"><a href="Menu.html#event:categorySelected">categorySelected</a></span></li><li class="nav-heading"><span class="nav-item-type type-event">E</span><span class="nav-item-name"><a href="Menu.html#event:over">over</a></span></li><li class="nav-heading"><span class="nav-item-type type-event">E</span><span class="nav-item-name"><a href="Pagination.html#event:collect">collect</a></span></li><li class="nav-heading"><span class="nav-item-type type-event">E</span><span class="nav-item-name"><a href="Pagination.html#event:over">over</a></span></li><li class="nav-heading"><span class="nav-item-type type-event">E</span><span class="nav-item-name"><a href="Response.html#event:collected">collected</a></span></li><li class="nav-heading"><span class="nav-item-type type-event">E</span><span class="nav-item-name"><a href="Response.html#event:error">error</a></span></li><li class="nav-heading"><span class="nav-item-type type-event">E</span><span class="nav-item-name"><a href="Response.html#event:response">response</a></span></li><li class="nav-heading"><a href="global.html">Globals</a></li>
+</nav>
+
+<div id="main">
+    
+    <h1 class="page-title">lib/Menu.js</h1>
+    
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>const EventEmitter = require('events').EventEmitter;
+const {RichEmbed} = require('discord.js');
+const Constants = require('../utils/Constants.js');
+
+const flat = (array, depth = 1) => array.reduce((a, v) => a.concat(depth > 1 &amp;&amp; Array.isArray(v) ? flat(v, depth - 1) : v), []);
+
+/**
+ * Represents the Menu Interface
+ * @class
+ */
+class Menu extends EventEmitter {
+    /**
+     * @param {Message} message The discord.js message object
+     * @param {MenuOptions} options Options for the menu interface
+     */
+    constructor(message, options) {
+        super();
+
+        if (!message) throw new Error('Expected "message" parameter');
+        if (!options) throw new Error('Expected "options" parameter');
+
+        if (!options.userID || !options.categories) throw new Error('Expected options.userID and options.categories properties');
+
+        this.originalMessage = message;
+        this.options = {...Constants.MenuOptions, ...options};
+
+        this.start();
+    }
+
+    async start() {
+        let existsMainCategories = this.options.categories.some(category => category.isMain);
+
+        let mainCategories = this.options.categories.filter(category => existsMainCategories ? category.isMain : true);
+        let mainCategoriesEmojis = mainCategories.map(category => category.emoji.id);
+        let mainReactions = [...mainCategoriesEmojis, this.options.reactions.cancel];
+
+        let categories = existsMainCategories ? flat([...mainCategories, ...this.options.categories.map(category => category.subCategories)]) : mainCategories;
+
+        let categoriesEmojis = categories.map(category => category.emoji.id);
+
+        let reactions = [this.options.reactions.goBack, ...categoriesEmojis, this.options.reactions.cancel];
+
+        this.message = await this.originalMessage.channel.send(this.getPage(mainCategories));
+
+        await this.handleMessage({reactions: mainReactions});
+
+        this.ready = true;
+
+        let filter = (reaction, user) => (reactions.includes(reaction.emoji.name) || reactions.includes(reaction.emoji.id)) &amp;&amp; user.id == this.options.userID &amp;&amp; this.ready;
+        this.collector = this.message.createReactionCollector(filter, this.options);
+
+        this.collector.on('collect', async reaction => {
+            if (reaction.emoji.name == this.options.reactions.cancel) return this.collector.stop();
+
+            if (reaction.emoji.name == this.options.reactions.goBack) return await this.handleMessage({reactions: mainReactions, clear: true, edit: true, categories: mainCategories});
+            
+            if (this.options.removeReactions !== false) await reaction.remove(this.options.userID);
+            let category = categories.find(category => [reaction.emoji.name, reaction.emoji.id].includes(category.emoji.id));
+
+            this.emit('categorySelected', category);
+
+            if (category.isMain) {
+                let subCategoriesEmojis = category.subCategories.map(element => element.emoji.id);
+
+                let reactions = [this.options.reactions.goBack, ...subCategoriesEmojis, this.options.reactions.cancel]
+                this.handleMessage({reactions, clear: true, edit: true, categories: category.subCategories})
+            }
+        });
+
+        this.collector.on('end', async (collected, reason) => {
+            if (!this.message.deleted) await this.message.delete();
+            this.emit('over', reason == 'time');
+        });
+    }
+
+    getPage(categories) {
+        let description = categories.map(category => `${category.emoji.emoji} ${category.name}`).join('\n\n');
+
+        let embed = new RichEmbed()
+            .setDescription(`${this.options.prefix || ''}\n\n${description}\n\n${this.options.suffix || ''}`)
+            .setColor(this.options.embedColor || 'RANDOM')
+
+        if (!this.options.disableTitle) embed.setAuthor(this.options.title || 'Choose a category')
+
+        return embed;
+    }
+
+    async handleMessage(options) {
+        this.ready = false;
+
+        if (options.clear) await this.message.clearReactions();
+        if (options.edit) this.message.edit(this.getPage(options.categories));
+
+        for (let emoji of options.reactions) {
+            if (this.message.deleted) return this.collector.stop();
+            await this.message.react(emoji);
+        }
+
+        this.ready = true;
+    }
+
+    /**
+     * Creates a Menu Interface
+     * @param {Message} message The discord.js message object
+     * @param {MenuOptions} options Options for the menu interface
+     */
+    static create(message, options) {
+        return new Menu(message, options);
+    }
+}
+
+/**
+ * @event Menu#categorySelected
+ * @property {MenuCategoryOptions} category The category selected
+ */
+
+/**
+ * @event Menu#over
+ * @property {boolean} timeOver Whether the reason the collector stopped is due to the time over
+ */
+
+module.exports = Menu;</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<br class="clear">
+
+<footer>
+    Generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.6.2</a> using the Minami theme.
+</footer>
+
+<script>prettyPrint();</script>
+<script src="scripts/linenumber.js"></script>
+</body>
+</html>
