@@ -1,0 +1,12 @@
+{
+	"compilerOptions": {
+		"target": "es2019",
+		"lib": ["esnext"],
+		"outDir": "lib",
+		"rootDir": "src",
+		"baseUrl": "src",
+		"module": "commonjs",
+		"moduleResolution": "node",
+		"declaration": true
+	}
+}
