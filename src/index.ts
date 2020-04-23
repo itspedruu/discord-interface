@@ -7,3 +7,5 @@ export {
 	Pagination,
 	Response
 }
+
+export * from './utils/interfaces';
