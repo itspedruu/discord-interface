@@ -1,12 +1,12 @@
 import { ConfirmationOptions } from '../utils/interfaces';
-import { TextChannel, DMChannel, MessageEmbed } from 'discord.js';
+import { TextChannel, DMChannel, MessageEmbed, NewsChannel } from 'discord.js';
 import utils from '../utils';
 import { EventEmitter } from 'events';
 import { DEFAULT_CONFIRMATION_OPTIONS } from '../utils/defaults';
 
 export default class Confirmation extends EventEmitter {
 	options: ConfirmationOptions;
-	channel: TextChannel | DMChannel;
+	channel: TextChannel | DMChannel | NewsChannel;
 
 	constructor(options: ConfirmationOptions) {
 		super();

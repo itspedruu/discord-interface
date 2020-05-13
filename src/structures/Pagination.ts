@@ -1,5 +1,5 @@
 import { PaginationOptions } from '../utils/interfaces';
-import { TextChannel, DMChannel } from 'discord.js';
+import { TextChannel, DMChannel, NewsChannel } from 'discord.js';
 import utils from '../utils';
 import { EventEmitter } from 'events';
 import Response from './Response';
@@ -7,7 +7,7 @@ import { DEFAULT_PAGINATION_OPTIONS } from '../utils/defaults';
 
 export default class Pagination extends EventEmitter {
 	options: PaginationOptions;
-	channel: TextChannel | DMChannel;
+	channel: TextChannel | DMChannel | NewsChannel;
 	index: number;
 
 	constructor(options: PaginationOptions) {

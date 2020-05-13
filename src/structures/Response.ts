@@ -1,5 +1,5 @@
 import { ResponseOptions } from '../utils/interfaces';
-import { TextChannel, DMChannel, MessageEmbed, Message } from 'discord.js';
+import { TextChannel, DMChannel, MessageEmbed, Message, NewsChannel } from 'discord.js';
 import { EventEmitter } from 'events';
 import { DEFAULT_RESPONSE_OPTIONS } from '../utils/defaults';
 
@@ -7,7 +7,7 @@ type ParsedResponse = Message | string | number | null;
 
 export default class Response extends EventEmitter {
 	options: ResponseOptions;
-	channel: TextChannel | DMChannel;
+	channel: TextChannel | DMChannel | NewsChannel;
 
 	constructor(options: ResponseOptions) {
 		super();
