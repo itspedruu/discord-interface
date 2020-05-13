@@ -24,18 +24,18 @@ export default class Pagination extends EventEmitter {
 		const message = await this.channel.send(await this.options.getPage(this.options.items[this.index], this.index + 1));
 
 		const reactions = this.options.items.length == 1
-			? [...this.options.extraReactions, this.options.reactions.cancel]
+			? [...(this.options.extraReactions || []), this.options.reactions.cancel]
 			: this.options.items.length == 2
 				? [
 					this.options.reactions.previousPage, 
-					...this.options.extraReactions, 
+					...(this.options.extraReactions || []), 
 					this.options.reactions.nextPage, 
 					this.options.reactions.cancel
 				]
 				: [
 					this.options.reactions.goToStart,
 					this.options.reactions.previousPage, 
-					...this.options.extraReactions, 
+					...(this.options.extraReactions || []), 
 					this.options.reactions.nextPage,
 					this.options.reactions.goToEnd,
 					this.options.reactions.goToPage,
