@@ -1,10 +1,10 @@
-import {TextChannel, DMChannel, MessageEmbed} from 'discord.js';
+import {TextChannel, DMChannel, MessageEmbed, NewsChannel} from 'discord.js';
 
 export interface CommonOptions {
 	time?: number;
 	userId: string;
 	embedColor?: string;
-	channel: TextChannel | DMChannel;
+	channel: TextChannel | DMChannel | NewsChannel;
 	deleteMessage?: boolean;
 }
 
