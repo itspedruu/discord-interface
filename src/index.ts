@@ -8,4 +8,4 @@ export {
 	Response
 }
 
-export * from './utils/interfaces';
+export * from './util/Interfaces';

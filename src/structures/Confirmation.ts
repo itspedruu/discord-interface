@@ -1,52 +1,61 @@
-import { ConfirmationOptions } from '../utils/interfaces';
-import { TextChannel, DMChannel, MessageEmbed, NewsChannel } from 'discord.js';
-import utils from '../utils';
-import { EventEmitter } from 'events';
-import { DEFAULT_CONFIRMATION_OPTIONS } from '../utils/defaults';
+import { TextChannel, DMChannel, NewsChannel, CommandInteraction, Message } from 'discord.js';
 
-export default class Confirmation extends EventEmitter {
+import { ConfirmationOptions, ConfirmationResult } from '../util/Interfaces';
+import { DEFAULT_CONFIRMATION_OPTIONS } from '../util/Defaults';
+
+export default class Confirmation {
 	options: ConfirmationOptions;
-	channel: TextChannel | DMChannel | NewsChannel;
+	channel?: TextChannel | DMChannel | NewsChannel;
+	interaction?: CommandInteraction;
 
 	constructor(options: ConfirmationOptions) {
-		super();
+		this.options = {...DEFAULT_CONFIRMATION_OPTIONS, ...options};
 
-		// @ts-ignore
-		this.options = {...DEFAULT_CONFIRMATION_OPTIONS, ...options}
 		this.channel = options.channel;
-
-		this.run();
+		this.interaction = options.interaction;
 	}
 
-	async run(): Promise<void> {
-		const message = await this.channel.send(new MessageEmbed()
-			.setDescription(this.options.text)
-			.setColor(this.options.embedColor)
-			.setTimestamp()
-		);
+	async run(): Promise<ConfirmationResult> {
+		if (!this.options.messageOptions.components) {
+			this.options.messageOptions.components = [this.options.component];
+		}
 
-		const reactions = Object.values(this.options.reactions);
-		const filter = (reaction, user): boolean => utils.isEmojiCompatible(reactions, reaction.emoji) && this.options.userId == user.id;
-		const collector = message.createReactionCollector(filter, {max: 1, ...this.options});
+		if (this.options.messageOptions.ephemeral) {
+			this.options.messageOptions.ephemeral = false;
+		}
 
-		collector.on('collect', reaction => {
-			const hasConfirmed = utils.isEmojiCompatible(reactions[0], reaction.emoji);
+		const message = (this.interaction ? await this.interaction.fetchReply() : await this.channel.send(this.options.messageOptions)) as Message;
+		const filter = (interaction): boolean => this.options.userId ? interaction.user.id === this.options.userId : true;
+		const collector = message.createMessageComponentCollector({filter, max: 1, ...this.options});
 
-			this.emit('confirmation', hasConfirmed);
+		return new Promise(resolve => {
+			collector.on('collect', interaction => {
+				interaction.deferUpdate();
+
+				const hasConfirmed = interaction.customId === 'DI_YES';
+	
+				resolve({hasConfirmed, interaction});
+			});
+	
+			collector.on('end', (_, reason) => {
+				if (this.options.deleteMessage) {
+					message.delete();
+				} else if (this.options.deleteButtons) {
+					delete this.options.messageOptions.components;
+
+					message.edit(this.options.messageOptions);
+				}
+	
+				if (reason === 'time') {
+					resolve(null);
+				}
+			});
 		});
-
-		collector.on('end', (_, reason) => {
-			if (this.options.deleteMessage)
-				message.delete();
-
-			this.emit('over', reason == 'time');
-		});
-
-		for (const reaction of reactions)
-			await message.react(reaction);
 	}
 
-	static create(options: ConfirmationOptions): Confirmation {
-		return new Confirmation(options);
+	static get(options: ConfirmationOptions): Promise<ConfirmationResult> {
+		const confirmation = new Confirmation(options);
+
+		return confirmation.run();
 	}
 }

@@ -1,114 +1,146 @@
-import { PaginationOptions } from '../utils/interfaces';
-import { TextChannel, DMChannel, NewsChannel } from 'discord.js';
-import utils from '../utils';
+import { TextChannel, DMChannel, NewsChannel, CommandInteraction, InteractionReplyOptions, MessageActionRow, Message } from 'discord.js';
 import { EventEmitter } from 'events';
 import Response from './Response';
-import { DEFAULT_PAGINATION_OPTIONS } from '../utils/defaults';
+
+import util from '../util';
+
+import { PaginationOptions } from '../util/Interfaces';
+import { DEFAULT_PAGINATION_OPTIONS } from '../util/Defaults';
 
 export default class Pagination extends EventEmitter {
 	options: PaginationOptions;
-	channel: TextChannel | DMChannel | NewsChannel;
 	index: number;
+	channel?: TextChannel | DMChannel | NewsChannel;
+	interaction?: CommandInteraction;
 
 	constructor(options: PaginationOptions) {
 		super();
 
 		this.options = {...DEFAULT_PAGINATION_OPTIONS, ...options};
-		this.channel = options.channel;
 		this.index = 0;
+
+		this.channel = options.channel;
+		this.interaction = options.interaction;
 
 		this.run();
 	}
 
+	getComponents(): MessageActionRow[] {
+		const closeRow = new MessageActionRow().addComponents(this.options.buttons.close);
+		const extraComponents = this.options.extraComponents ?? [];
+
+		if (this.options.items.length === 1) {
+			return [...extraComponents, closeRow];
+		}
+
+		if (this.options.items.length === 2) {
+			const firstRow = new MessageActionRow().addComponents(
+				this.options.buttons.previousPage,
+				this.options.buttons.nextPage,
+				this.options.buttons.close
+			);
+
+			return [firstRow, ...extraComponents];
+		}
+
+		const firstRow = new MessageActionRow().addComponents(
+			this.options.buttons.goToStart,
+			this.options.buttons.previousPage,
+			this.options.buttons.nextPage,
+			this.options.buttons.goToEnd,
+			this.options.buttons.search
+		);
+
+		return [firstRow, ...extraComponents, closeRow]
+	}
+
+	async getPageMessageOptions(deleteButtons?: boolean): Promise<InteractionReplyOptions> {
+		const options = await this.options.getPageMessageOptions(this.options.items[this.index], this.index + 1);
+		const components = this.getComponents();
+
+		if (options.ephemeral) {
+			options.ephemeral = false;
+		}
+
+		if (!deleteButtons) {
+			options.components = components;
+		}
+
+		return options;
+	}
+
 	async run(): Promise<void> {
-		const message = await this.channel.send(await this.options.getPage(this.options.items[this.index], this.index + 1));
+		if (this.interaction) {
+			await this.interaction.reply(await this.getPageMessageOptions());
+		}
 
-		const reactions = this.options.items.length == 1
-			? [...(this.options.extraReactions || []), this.options.reactions.cancel]
-			: this.options.items.length == 2
-				? [
-					this.options.reactions.previousPage, 
-					...(this.options.extraReactions || []), 
-					this.options.reactions.nextPage, 
-					this.options.reactions.cancel
-				]
-				: [
-					this.options.reactions.goToStart,
-					this.options.reactions.previousPage, 
-					...(this.options.extraReactions || []), 
-					this.options.reactions.nextPage,
-					this.options.reactions.goToEnd,
-					this.options.reactions.goToPage,
-					this.options.reactions.cancel
-				];
-		const filter = (reaction, user): boolean => utils.isEmojiCompatible(reactions, reaction.emoji) && this.options.userId == user.id;
-		const collector = message.createReactionCollector(filter, this.options);
+		const message = (this.interaction ? await this.interaction.fetchReply() : await this.channel.send(await this.getPageMessageOptions())) as Message;
+		const filter = util.filter(this.options.userId);
+		const collector = message.createMessageComponentCollector({filter, ...this.options});
 
-		collector.on('collect', async reaction => {
-			const actions: any = {};
+		collector.on('collect', async interaction => {
+			let pageNumber: number;
 
-			for (const key of Object.keys(this.options.reactions)) 
-				actions[key] = utils.isEmojiCompatible([this.options.reactions[key]], reaction.emoji);
+			switch (interaction.customId) {
+				case 'DI_CLOSE':
+					collector.stop();
+					break;
+				case 'DI_GO_TO_START':
+					this.index = 0;
+					break;
+				case 'DI_PREVIOUS_PAGE':
+					this.index = this.index - 1 < 0 ? this.options.items.length - 1 : this.index - 1;
+					break;
+				case 'DI_NEXT_PAGE':
+					this.index = (this.index + 1) % this.options.items.length;
+					break;
+				case 'DI_GO_TO_END':
+					this.index = this.options.items.length - 1;
+					break;
+				case 'DI_SEARCH':
+					interaction.deferUpdate();
 
-			if (actions.cancel)
-				return collector.stop();
+					pageNumber = await this.getResponse();
 
-			if (this.options.extraReactions)
-				actions.extraReaction = utils.isEmojiCompatible(this.options.extraReactions, reaction.emoji);
+					if (!pageNumber) {
+						return interaction.deferUpdate();
+					}
 
-			if (actions.goToStart)
-				this.index = 0;
-			
-			if (actions.previousPage)
-				this.index = this.index - 1 < 0 ? this.options.items.length - 1 : this.index - 1;
-			
-			if (actions.nextPage)
-				this.index = (this.index + 1) % this.options.items.length;
-			
-			if (actions.goToEn)
-				this.index = this.options.items.length - 1;
-			
-			if (actions.goToPage) {
-				const pageNumber = await this.getResponse();
-				if (!pageNumber) return;
+					this.index = pageNumber - 1;
 
-				this.index = pageNumber - 1;
+					break;
+				default:
+					this.emit('extraInteraction', interaction);
 			}
 
-			if (actions.extraReaction)
-				this.emit('extraReaction', reaction);
+			await message.edit(await this.getPageMessageOptions());
 
-			if (this.options.deleteReaction)
-				await reaction.users.remove(this.options.userId);
-
-			await message.edit(await this.options.getPage(this.options.items[this.index], this.index + 1));
+			if (interaction.customId === 'DI_SEARCH') {
+				interaction.deferUpdate();
+			}
 		});
 
-		collector.on('end', (_, reason) => {
-			if (this.options.deleteMessage)
+		collector.on('end', async (_, reason) => {
+			if (this.options.deleteMessage) {
 				message.delete();
+			} else if (this.options.deleteButtons) {
+				message.edit(await this.getPageMessageOptions(true));
+			}
 
 			this.emit('over', reason == 'time');
 		});
-
-		for (const reaction of reactions)
-			await message.react(reaction);
 	}
 
-	async getResponse(): Promise<number | null> {
-		const response = Response.create({
-			text: utils.formatString(this.options.goToPageText, this.options.items.length),
-			returnInt: true,
+	async getResponse(): Promise<number> {
+		const response = await Response.get({
+			messageOptions: this.options.searchMessageOptions,
+			parseAsInteger: true,
 			min: 1,
 			max: this.options.items.length,
 			...this.options
 		});
 
-		return new Promise(resolve => {
-			response.on('collected', resolve);
-			
-			response.on('over', hasTimeEnded => hasTimeEnded ? resolve(null) : null);
-		});
+		return response.parsed as number;
 	}
 
 	static create(options: PaginationOptions): Pagination {

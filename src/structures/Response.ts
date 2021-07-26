@@ -1,70 +1,110 @@
-import { ResponseOptions } from '../utils/interfaces';
-import { TextChannel, DMChannel, MessageEmbed, Message, NewsChannel } from 'discord.js';
-import { EventEmitter } from 'events';
-import { DEFAULT_RESPONSE_OPTIONS } from '../utils/defaults';
+import { ResponseOptions, ResponseResult } from '../util/Interfaces';
+import { TextChannel, CommandInteraction, Message } from 'discord.js';
+import { DEFAULT_RESPONSE_OPTIONS } from '../util/Defaults';
 
-type ParsedResponse = Message | string | number | null;
+import util from '../util';
 
-export default class Response extends EventEmitter {
+export default class Response {
 	options: ResponseOptions;
-	channel: TextChannel | DMChannel | NewsChannel;
+	channel?: TextChannel;
+	interaction?: CommandInteraction;
 
 	constructor(options: ResponseOptions) {
-		super();
-
 		this.options = {...DEFAULT_RESPONSE_OPTIONS, ...options};
-		this.channel = options.channel;
 
-		this.run();
+		this.channel = (options.channel ?? options.interaction?.channel) as TextChannel;
+		this.interaction = options.interaction;
+
+		if (!this.channel && !this.interaction) {
+			throw new Error('You need a channel or a command interaction on the response options');
+		}
 	}
 
-	async run(): Promise<void> {
-		const message = await this.channel.send(new MessageEmbed()
-			.setDescription(this.options.text)
-			.setColor(this.options.embedColor)
-			.setTimestamp()
-		);
-
-		const filter = (collectedMessage): boolean => this.options.userId == collectedMessage.author.id;
-		const collector = this.channel.createMessageCollector(filter, {max: 1, ...this.options});
-
-		collector.on('collect', message => {
-			this.emit('response', message);
-
-			this.emit('collected', this.handleMessage(message));
-
-			if (this.options.deleteMessage)
-				message.delete();
-		});
-
-		collector.on('end', (_, reason) => {
-			if (this.options.deleteMessage)
-				message.delete();
-
-			this.emit('over', reason == 'time');
-		});
-	}
-
-	handleMessage(message): ParsedResponse {
-		if (this.options.cancelMessage.toLowerCase() == message.content.toLowerCase())
-			return null;
-
-		if (this.options.returnContent === false)
-			return message;
-
-		if (this.options.returnInt) {
-			const quantity = parseInt(message.content);
-
-			if (this.options.min && this.options.max && (quantity < this.options.min || quantity > this.options.max))
-				return null;
-
-			return quantity;
+	async run(): Promise<ResponseResult> {
+		if (this.options.messageOptions.ephemeral) {
+			this.options.messageOptions.ephemeral = false;
 		}
 
-		return message.content;
+		if (!this.options.messageOptions.components) {
+			this.options.messageOptions.components = [this.options.cancelComponent];
+		}
+
+		if (this.interaction) {
+			await this.interaction.reply(this.options.messageOptions);
+		}
+
+		const message = (this.interaction ? await this.interaction.fetchReply() : await this.channel.send(this.options.messageOptions)) as Message;
+		const filter = util.filter(this.options.userId);
+		const messageCollector = this.channel.createMessageCollector({filter, max: 1, ...this.options});
+		const buttonCollector = message.createMessageComponentCollector({filter, max: 1, ...this.options});
+
+		return new Promise(resolve => {
+			messageCollector.on('collect', message => {
+				if (this.options.deleteCollectedMessage && !message.deleted && message.deletable) {
+					message.delete();
+				}
+
+				const parsed = this.parse(message);
+
+				resolve({parsed, collected: message});
+			});
+
+			buttonCollector.on('collect', interaction => {
+				interaction.deferUpdate();
+				messageCollector.stop();
+
+				if (this.options.cancelMessageOptions) {
+					if (this.interaction) {
+						this.interaction.reply(this.options.cancelMessageOptions);
+					} else {
+						this.channel.send(this.options.cancelMessageOptions);
+					}
+				}
+
+				resolve(null);
+			});
+
+			messageCollector.on('end', (_, reason) => {
+				if (this.options.deleteMessage && message.deletable && !message.deleted) {
+					message.delete();
+				} else if (this.options.deleteButtons) {
+					delete this.options.messageOptions.components;
+
+					message.edit(this.options.messageOptions);
+				}
+
+				if (reason === 'time') {
+					return resolve(null);
+				}
+			});
+		});
 	}
 
-	static create(options: ResponseOptions): Response {
-		return new Response(options);
+	parse(message): ResponseResult['parsed'] {
+		if (!this.options.parseAsInteger) {
+			return message.content;
+		}
+
+		const quantity = parseInt(message.content);
+
+		if (!quantity) {
+			return null;
+		}
+
+		if (typeof this.options.min === 'number' && quantity < this.options.min) {
+			return null;
+		}
+
+		if (typeof this.options.max === 'number' && quantity > this.options.max) {
+			return null;
+		}
+
+		return quantity;
+	}
+
+	static get(options: ResponseOptions): Promise<ResponseResult> {
+		const response = new Response(options);
+
+		return response.run();
 	}
 }
