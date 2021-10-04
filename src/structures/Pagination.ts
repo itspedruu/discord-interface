@@ -115,7 +115,7 @@ export default class Pagination extends EventEmitter {
 
 			await message.edit(await this.getPageMessageOptions());
 
-			if (interaction.customId === 'DI_SEARCH') {
+			if (interaction.customId !== 'DI_SEARCH') {
 				interaction.deferUpdate();
 			}
 		});
