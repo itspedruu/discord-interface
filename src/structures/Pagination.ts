@@ -169,7 +169,8 @@ export default class Pagination extends EventEmitter {
 			max: this.options.items.length,
 			...this.options,
 			interaction,
-			deleteMessage: true
+			deleteMessage: true,
+			deleteCollectedMessage: true
 		});
 
 		if (!response) {

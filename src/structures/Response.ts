@@ -40,8 +40,8 @@ export default class Response {
 
 		return new Promise(resolve => {
 			messageCollector.on('collect', message => {
-				if (this.options.deleteCollectedMessage && !message.deletable && message.deletable) {
-					message.delete();
+				if (this.options.deleteCollectedMessage && message.deletable) {
+					message.delete().catch(console.error);
 				}
 
 				const parsed = this.parse(message);
@@ -65,12 +65,12 @@ export default class Response {
 			});
 
 			messageCollector.on('end', (_, reason) => {
-				if (this.options.deleteMessage && message.deletable && !message.deletable) {
-					message.delete();
+				if (this.options.deleteMessage && message.deletable) {
+					message.delete().catch(console.error);
 				} else if (this.options.deleteButtons) {
 					delete this.options.messageOptions.components;
 
-					message.edit(this.options.messageOptions);
+					message.edit(this.options.messageOptions).catch(console.error);
 				}
 
 				if (reason === 'time') {
