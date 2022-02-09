@@ -1,17 +1,17 @@
-import { TextChannel, DMChannel, NewsChannel, CommandInteraction, InteractionReplyOptions, MessageActionRow, Message } from 'discord.js';
+import { TextChannel, DMChannel, NewsChannel, InteractionReplyOptions, MessageActionRow, Message, ButtonInteraction } from 'discord.js';
 import { EventEmitter } from 'events';
 import Response from './Response';
 
 import util from '../util';
 
-import { PaginationOptions } from '../util/Interfaces';
+import { PaginationOptions, InteractionResolvable } from '../util/Interfaces';
 import { DEFAULT_PAGINATION_OPTIONS } from '../util/Defaults';
 
 export default class Pagination extends EventEmitter {
 	options: PaginationOptions;
 	index: number;
 	channel?: TextChannel | DMChannel | NewsChannel;
-	interaction?: CommandInteraction;
+	interaction?: InteractionResolvable;
 
 	constructor(options: PaginationOptions) {
 		super();
@@ -55,7 +55,12 @@ export default class Pagination extends EventEmitter {
 	}
 
 	async getPageMessageOptions(deleteButtons?: boolean): Promise<InteractionReplyOptions> {
-		const options = await this.options.getPageMessageOptions(this.options.items[this.index], this.index + 1);
+		const options = await (this.options.getPageMessageOptions(this.options.items[this.index], this.index + 1) as Promise<InteractionReplyOptions>);
+
+		if (!options) {
+			return;
+		}
+
 		const components = this.getComponents();
 
 		if (options.ephemeral) {
@@ -70,15 +75,28 @@ export default class Pagination extends EventEmitter {
 	}
 
 	async run(): Promise<void> {
-		if (this.interaction) {
-			await this.interaction.reply(await this.getPageMessageOptions());
+		const options = await this.getPageMessageOptions();
+
+		if (!options) {
+			return;
 		}
 
-		const message = (this.interaction ? await this.interaction.fetchReply() : await this.channel.send(await this.getPageMessageOptions())) as Message;
+		if (this.interaction) {
+			try {
+				await this.interaction.reply(options);
+			} catch (e) {
+				return console.error(e);
+			}
+		}
+
+		const message = this.interaction
+			? await this.interaction.fetchReply() as Message
+			: await this.channel.send(options) as Message;
+
 		const filter = util.filter(this.options.userId);
 		const collector = message.createMessageComponentCollector({filter, ...this.options});
 
-		collector.on('collect', async interaction => {
+		collector.on('collect', async (interaction: ButtonInteraction) => {
 			let pageNumber: number;
 
 			switch (interaction.customId) {
@@ -98,12 +116,10 @@ export default class Pagination extends EventEmitter {
 					this.index = this.options.items.length - 1;
 					break;
 				case 'DI_SEARCH':
-					interaction.deferUpdate();
-
-					pageNumber = await this.getResponse();
+					pageNumber = await this.getResponse(interaction);
 
 					if (!pageNumber) {
-						return interaction.deferUpdate();
+						return;
 					}
 
 					this.index = pageNumber - 1;
@@ -113,32 +129,52 @@ export default class Pagination extends EventEmitter {
 					this.emit('extraInteraction', interaction);
 			}
 
-			await message.edit(await this.getPageMessageOptions());
+			const options = await this.getPageMessageOptions();
+
+			if (!options) {
+				return;
+			}
+
+			await message.edit(options);
 
 			if (interaction.customId !== 'DI_SEARCH') {
-				interaction.deferUpdate();
+				await interaction.deferUpdate();
 			}
 		});
 
 		collector.on('end', async (_, reason) => {
 			if (this.options.deleteMessage) {
-				message.delete();
+				if (message.deletable) {
+					message.delete();
+				}
 			} else if (this.options.deleteButtons) {
-				message.edit(await this.getPageMessageOptions(true));
+				const options = await this.getPageMessageOptions(true);
+
+				if (!options) {
+					return;
+				}
+
+				message.edit(options);
 			}
 
 			this.emit('over', reason == 'time');
 		});
 	}
 
-	async getResponse(): Promise<number> {
+	async getResponse(interaction: ButtonInteraction): Promise<number> {
 		const response = await Response.get({
 			messageOptions: this.options.searchMessageOptions,
 			parseAsInteger: true,
 			min: 1,
 			max: this.options.items.length,
-			...this.options
+			...this.options,
+			interaction,
+			deleteMessage: true
 		});
+
+		if (!response) {
+			return;
+		}
 
 		return response.parsed as number;
 	}

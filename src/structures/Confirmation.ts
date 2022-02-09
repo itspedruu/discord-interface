@@ -1,12 +1,12 @@
-import { TextChannel, DMChannel, NewsChannel, CommandInteraction, Message } from 'discord.js';
+import { TextChannel, DMChannel, NewsChannel, Message, ButtonInteraction } from 'discord.js';
 
-import { ConfirmationOptions, ConfirmationResult } from '../util/Interfaces';
+import { ConfirmationOptions, ConfirmationResult, InteractionResolvable } from '../util/Interfaces';
 import { DEFAULT_CONFIRMATION_OPTIONS } from '../util/Defaults';
 
 export default class Confirmation {
 	options: ConfirmationOptions;
 	channel?: TextChannel | DMChannel | NewsChannel;
-	interaction?: CommandInteraction;
+	interaction?: InteractionResolvable;
 
 	constructor(options: ConfirmationOptions) {
 		this.options = {...DEFAULT_CONFIRMATION_OPTIONS, ...options};
@@ -29,7 +29,7 @@ export default class Confirmation {
 		const collector = message.createMessageComponentCollector({filter, max: 1, ...this.options});
 
 		return new Promise(resolve => {
-			collector.on('collect', interaction => {
+			collector.on('collect', (interaction: ButtonInteraction) => {
 				interaction.deferUpdate();
 
 				const hasConfirmed = interaction.customId === 'DI_YES';

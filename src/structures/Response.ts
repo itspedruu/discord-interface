@@ -1,13 +1,13 @@
-import { ResponseOptions, ResponseResult } from '../util/Interfaces';
-import { TextChannel, CommandInteraction, Message } from 'discord.js';
-import { DEFAULT_RESPONSE_OPTIONS } from '../util/Defaults';
-
+import { TextChannel, Message } from 'discord.js';
 import util from '../util';
+
+import { ResponseOptions, ResponseResult, InteractionResolvable } from '../util/Interfaces';
+import { DEFAULT_RESPONSE_OPTIONS } from '../util/Defaults';
 
 export default class Response {
 	options: ResponseOptions;
 	channel?: TextChannel;
-	interaction?: CommandInteraction;
+	interaction?: InteractionResolvable;
 
 	constructor(options: ResponseOptions) {
 		this.options = {...DEFAULT_RESPONSE_OPTIONS, ...options};
@@ -40,7 +40,7 @@ export default class Response {
 
 		return new Promise(resolve => {
 			messageCollector.on('collect', message => {
-				if (this.options.deleteCollectedMessage && !message.deleted && message.deletable) {
+				if (this.options.deleteCollectedMessage && !message.deletable && message.deletable) {
 					message.delete();
 				}
 
@@ -65,7 +65,7 @@ export default class Response {
 			});
 
 			messageCollector.on('end', (_, reason) => {
-				if (this.options.deleteMessage && message.deletable && !message.deleted) {
+				if (this.options.deleteMessage && message.deletable && !message.deletable) {
 					message.delete();
 				} else if (this.options.deleteButtons) {
 					delete this.options.messageOptions.components;
