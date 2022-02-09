@@ -40,6 +40,9 @@ export default class Response {
 
 		return new Promise(resolve => {
 			messageCollector.on('collect', message => {
+				messageCollector.stop();
+				buttonCollector.stop();
+
 				if (this.options.deleteCollectedMessage && message.deletable) {
 					message.delete().catch(console.error);
 				}
@@ -51,7 +54,9 @@ export default class Response {
 
 			buttonCollector.on('collect', interaction => {
 				interaction.deferUpdate();
+
 				messageCollector.stop();
+				buttonCollector.stop();
 
 				if (this.options.cancelMessageOptions) {
 					if (this.interaction) {
